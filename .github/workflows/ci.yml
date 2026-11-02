@@ -1,0 +1,92 @@
+# CI: style, typecheck, unit tests on three platforms, then a full build.
+#
+# Every job goes through .github/actions/setup, which enables pnpm through corepack, installs
+# Node 24 with a warm store and runs a frozen install. A job that needs built packages names
+# them in the composite action's `build` input; one that only reads sources (style) does not.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Prettier reads sources, so this needs no build at all — the cheapest job in the run.
+  style:
+    name: style (prettier + oxlint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: Code style (Prettier)
+        run: pnpm format:check
+      - name: Lint (oxlint)
+        run: pnpm lint
+
+  # Typecheck after building what the checked packages import: their dependencies, never the
+  # packages themselves (tsc reads declarations, not a package's own dist).
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          build: "@niceagent/amsp,@niceagent/core,@niceagent/server,@niceagent/cli,@niceagent/web"
+      - name: Typecheck (tsc)
+        run: pnpm typecheck
+
+  # The web suite is the slowest; it runs on its own so a server regression is reported in
+  # minutes rather than after the UI tests.
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      NICEAGENT_BUILD_JS_ONLY: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          build: "@niceagent/core,@niceagent/server,@niceagent/cli,@niceagent/web,@niceagent/ui"
+      - name: Unit tests (vitest)
+        run: pnpm -r --if-present test
+        env:
+          NICEAGENT_MUST_RUN: "1"
+
+  # A full build proves the publishable chain (core → server → cli) and the Web App bundle,
+  # which is what a release packages.
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: Build every package
+        run: pnpm build
+      - name: The server serves the built Web App
+        run: test -f packages/web/dist/index.html && test -f packages/server/dist/index.js
+
+  # Keep this aggregate required in branch protection.
+  ci:
+    if: always()
+    needs: [style, typecheck, test, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every gate passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS"
+          echo "$NEEDS" | grep -q '"result": "failure"' && exit 1
+          echo "$NEEDS" | grep -q '"result": "cancelled"' && exit 1
+          exit 0

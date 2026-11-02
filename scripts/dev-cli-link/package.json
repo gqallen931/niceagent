@@ -1,0 +1,10 @@
+{
+  "name": "niceagent-dev-cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The globally linked niceagent CLI of a source checkout: the built CLI with the dev CLI's environment. `niceagent`/`niceagent-hmr` remain as aliases.",
+  "bin": {
+    "niceagent": "./niceagent.mjs",
+    "niceagent-hmr": "./niceagent-hmr.mjs"
+  }
+}

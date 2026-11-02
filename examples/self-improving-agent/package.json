@@ -1,0 +1,14 @@
+{
+  "name": "@niceagent/example-self-improving-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx self-evolve-recursive.ts"
+  },
+  "dependencies": {
+    "@niceagent/core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0"
+  }
+}

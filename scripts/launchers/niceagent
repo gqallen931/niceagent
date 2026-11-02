@@ -1,0 +1,26 @@
+#!/bin/sh
+# niceagent CLI launcher, installed as bin/niceagent inside the program directory.
+#
+# Runs the CLI on the Node runtime bundled at node/ when this package carries one,
+# otherwise on system Node (>= 24). The web assets sit beside it at web/.
+
+# This script's real location; readlink -f is not portable to macOS, hence the loop.
+SOURCE=$0
+while [ -h "$SOURCE" ]; do
+  DIR=$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)
+  SOURCE=$(readlink "$SOURCE")
+  case $SOURCE in
+    /*) ;;
+    *) SOURCE="$DIR/$SOURCE" ;;
+  esac
+done
+DIR=$(dirname "$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)")
+
+if [ -z "$NICEAGENT_WEB_DIST" ]; then
+  NICEAGENT_WEB_DIST="$DIR/web"
+  export NICEAGENT_WEB_DIST
+fi
+if [ -x "$DIR/node/bin/node" ]; then
+  exec "$DIR/node/bin/node" "$DIR/lib/dist/niceagent.js" "$@"
+fi
+exec node "$DIR/lib/dist/niceagent.js" "$@"

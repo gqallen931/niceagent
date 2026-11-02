@@ -1,0 +1,26 @@
+# Derive a role-by-module permission matrix
+
+- Benchmark: NiceAgent Benchmark Sec A — rag-bench-essential, Data Analysis Bench (converted to Harbor tasks)
+- Task: `workspacebench_taobao_permissions_hard` in https://github.com/your-org/niceagent-benchmark/tree/457400e894bfdc29b32ffd5ab29cd8372deb06e7/benchmarks/rag-bench-essential/tasks/workspacebench_taobao_permissions_hard
+- Upstream: https://github.com/your-org/rag-bench-essential (MIT; the case data keeps the terms of the benchmark it comes from)
+- Agent network: public · Verifier: same container, after the agent
+
+## How this case is run
+
+This case does not run in a Workspace. It is a Harbor task: the evaluator runs it in Docker with Harbor 0.23.0 and the NiceAgent adapter from the repository above, following that repository's rules for agents — https://github.com/your-org/niceagent-benchmark/blob/457400e894bfdc29b32ffd5ab29cd8372deb06e7/README.md#running-a-task-for-agents — from the root of a checkout of commit `457400e894bfdc29b32ffd5ab29cd8372deb06e7`:
+
+```bash
+export PYTHONPATH="$PWD/agents"
+uvx --from harbor==0.23.0 harbor run -p benchmarks/rag-bench-essential/tasks -i workspacebench_taobao_permissions_hard \
+  -a niceagent_agent:NiceAgentAgent -m <provider>/<model_id> \
+  --ak thinking=<level> --ak niceagent_version=<niceagent version> \
+  --ak run_timeout=15m --ak max_turns=100 \
+  --extra-docker-compose tools/docker/shared-network.yaml \
+  --agent-setup-timeout-multiplier 2.5 -k 1 -n 1 --job-name <job name> -o <jobs dir> -y
+```
+
+Caps: the agent is stopped at 15m and after 100 turns. Run at most four trials at a time on one machine. Prerequisites on the evaluating machine: Docker with Compose v2; uv; network access to Docker Hub and the Debian and PyPI mirrors the task images build from, nodejs.org, the npm registry and the model provider; the model under test configured in this machine's NiceAgent with its API key saved (the adapter copies that one entry into the container, outside the trial's log directory).
+
+The score is the verifier's reward × 100: a pass (1) scores 100, a fail (0) scores 0, and a fractional reward r scores 100·r. An evaluation from the Evaluation Center keeps every trial under this Benchmark's `.jobs/` directory and records its Session id as `harbor:<trial name>`.
+
+Measured results of NiceAgent on these tasks: https://github.com/your-org/niceagent-benchmark/blob/457400e894bfdc29b32ffd5ab29cd8372deb06e7/results/v0.2.13/README.md

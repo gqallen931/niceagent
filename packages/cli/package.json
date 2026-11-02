@@ -1,0 +1,75 @@
+{
+  "name": "@niceagent/cli",
+  "version": "0.2.18",
+  "type": "module",
+  "description": "NiceAgent CLI: interactive REPL and single-task runner over @niceagent/core.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gqallen931/niceagent.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "niceagent": "./dist/niceagent.js",
+    "niceagent-hmr": "./dist/niceagent-hmr.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "build": "tsup",
+    "niceagent": "node ../../scripts/run-with-env.mjs --unset=NICEAGENT_CLI_ENTRY NICEAGENT_HOME=~/.niceagent/dev-data-cli NICEAGENT_PROFILE=dev PORT=7369 -- tsx src/niceagent.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "^2.3.1",
+    "@niceagent/a2ui": "workspace:*",
+    "@niceagent/ace-rsi-toolkit": "workspace:*",
+    "@niceagent/agent-company": "workspace:*",
+    "@niceagent/agent-development": "workspace:*",
+    "@niceagent/agent-evaluation": "workspace:*",
+    "@niceagent/ape-rsi-toolkit": "workspace:*",
+    "@niceagent/awm-rsi-toolkit": "workspace:*",
+    "@niceagent/browser-automation": "workspace:*",
+    "@niceagent/continual-learning": "workspace:*",
+    "@niceagent/data-analysis": "workspace:*",
+    "@niceagent/default-rsi-toolkit": "workspace:*",
+    "@niceagent/goal": "workspace:*",
+    "@niceagent/humanizer": "workspace:*",
+    "@niceagent/model-development": "workspace:*",
+    "@niceagent/openskill-rsi-toolkit": "workspace:*",
+    "@niceagent/opro-rsi-toolkit": "workspace:*",
+    "@niceagent/agent-support": "workspace:*",
+    "@niceagent/skill-porting": "workspace:*",
+    "@niceagent/skilladam-rsi-toolkit": "workspace:*",
+    "@niceagent/skillopt-rsi-toolkit": "workspace:*",
+    "@niceagent/software-development": "workspace:*",
+    "@niceagent/trace-rsi-toolkit": "workspace:*",
+    "@niceagent/use-bento-slides": "workspace:*",
+    "@niceagent/use-firecrawl": "workspace:*",
+    "@niceagent/use-claude-code": "workspace:*",
+    "@prismshadow/mmsp": "^0.5.6",
+    "@niceagent/core": "workspace:*",
+    "@niceagent/server": "workspace:*",
+    "commander": "^13.0.0",
+    "dotenv": "^17.0.0",
+    "fflate": "^0.8.3",
+    "smol-toml": "^1.9.1",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsup": "^8.3.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.12"
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

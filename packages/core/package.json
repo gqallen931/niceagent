@@ -1,0 +1,106 @@
+{
+  "name": "@niceagent/core",
+  "version": "0.2.18",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "description": "NiceAgent core SDK: context_engine, the AMSP records it speaks, LLM/Environment interfaces.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gqallen931/niceagent.git",
+    "directory": "packages/core"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./interfaces": {
+      "types": "./dist/interfaces/index.d.ts",
+      "import": "./dist/interfaces/index.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin/index.d.ts",
+      "import": "./dist/plugin/index.js"
+    },
+    "./context-limits": {
+      "types": "./dist/llm/context-limits.d.ts",
+      "import": "./dist/llm/context-limits.js"
+    },
+    "./model-connection": {
+      "types": "./dist/state/model-connection.d.ts",
+      "import": "./dist/state/model-connection.js"
+    },
+    "./a2ui": {
+      "types": "./dist/a2ui/index.d.ts",
+      "import": "./dist/a2ui/index.js"
+    },
+    "./kernel": {
+      "types": "./dist/kernel/index.d.ts",
+      "import": "./dist/kernel/index.js",
+      "default": "./dist/kernel/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node ../../scripts/build-benchmarks.mjs && vitest run --passWithNoTests",
+    "test:e2e": "node ../../scripts/run-with-env.mjs NICEAGENT_E2E=1 -- vitest run test/llm.e2e.test.ts",
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "^2.3.1",
+    "@niceagent/a2ui": "workspace:*",
+    "@niceagent/ace-rsi-toolkit": "workspace:*",
+    "@niceagent/agent-company": "workspace:*",
+    "@niceagent/agent-development": "workspace:*",
+    "@niceagent/agent-evaluation": "workspace:*",
+    "@niceagent/ape-rsi-toolkit": "workspace:*",
+    "@niceagent/awm-rsi-toolkit": "workspace:*",
+    "@niceagent/browser-automation": "workspace:*",
+    "@niceagent/continual-learning": "workspace:*",
+    "@niceagent/data-analysis": "workspace:*",
+    "@niceagent/default-rsi-toolkit": "workspace:*",
+    "@niceagent/goal": "workspace:*",
+    "@niceagent/humanizer": "workspace:*",
+    "@niceagent/model-development": "workspace:*",
+    "@niceagent/openskill-rsi-toolkit": "workspace:*",
+    "@niceagent/opro-rsi-toolkit": "workspace:*",
+    "@niceagent/agent-support": "workspace:*",
+    "@niceagent/skill-porting": "workspace:*",
+    "@niceagent/skilladam-rsi-toolkit": "workspace:*",
+    "@niceagent/skillopt-rsi-toolkit": "workspace:*",
+    "@niceagent/software-development": "workspace:*",
+    "@niceagent/trace-rsi-toolkit": "workspace:*",
+    "@niceagent/use-bento-slides": "workspace:*",
+    "@niceagent/use-firecrawl": "workspace:*",
+    "@niceagent/use-claude-code": "workspace:*",
+    "@niceagent/amsp": "workspace:*",
+    "@prismshadow/mmsp": "^0.5.6",
+    "arktype": "^2.2.3",
+    "smol-toml": "^1.9.1",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/node": "^2.1.1",
+    "@modelcontextprotocol/server": "^2.3.1",
+    "@niceagent/skills": "workspace:*",
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "4.1.12",
+    "dotenv": "^17.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.12",
+    "zod": "^4.2.0"
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

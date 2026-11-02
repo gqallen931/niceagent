@@ -1,0 +1,40 @@
+{
+  "name": "niceagent",
+  "version": "0.2.18",
+  "private": true,
+  "type": "module",
+  "description": "NiceAgent \u2014 an open, self-hostable agent harness: a provider-agnostic reasoning core, a plugin/skill library, and a full Web + CLI surface for running, tracing and evaluating long-lived agents.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "oxlint",
+    "gen:ifaces": "node scripts/gen-ifaces.mjs --project packages/server/tsconfig.json --out packages/server/src/ifaces.json",
+    "ifaces:page": "pnpm gen:ifaces && node scripts/iface-page.mjs --in packages/server/src/ifaces.json --out dist-ifaces",
+    "typecheck": "pnpm gen:ifaces && pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @niceagent/core test:e2e",
+    "build": "pnpm -r build && pnpm link:cli",
+    "link:cli": "node scripts/dev-cli-link/link.mjs",
+    "niceagent": "node scripts/run-with-env.mjs --unset=NICEAGENT_CLI_ENTRY NICEAGENT_HOME=~/.niceagent/dev-data-cli NICEAGENT_PROFILE=dev PORT=7369 -- tsx packages/cli/src/niceagent.ts",
+    "dev": "concurrently -n server,web -c cyan,magenta \"pnpm dev:server\" \"pnpm dev:web\"",
+    "dev:server": "pnpm --filter @niceagent/server dev",
+    "dev:web": "node scripts/dev-prebuild.mjs && pnpm --filter @niceagent/web dev",
+    "build:a2ui-check": "node scripts/build-a2ui-check.mjs"
+  },
+  "devDependencies": {
+    "@niceagent/cli": "workspace:*",
+    "@niceagent/core": "workspace:*",
+    "@types/node": "^24.0.0",
+    "concurrently": "^10.0.6",
+    "esbuild": "^0.28.1",
+    "oxlint": "^1.81.0",
+    "prettier": "^3.9.4",
+    "tsx": "^4.20.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.12"
+  },
+  "packageManager": "pnpm@11.18.0"
+}
