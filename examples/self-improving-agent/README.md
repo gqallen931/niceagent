@@ -14,6 +14,11 @@ that the improvement is authored by the *agent*, not hardcoded by the script:
 Everything runs on a **local open-weight model** — `qwen3.6:35b` served by Ollama — so no cloud API
 and no data leaving the machine. Ollama's ROCm backend runs this natively on AMD GPUs.
 
+![Run output: baseline 4.80, structure round 6.60, constants round 9.80](../../docs/assets/screenshots/example-self-improving.png)
+
+> Illustrative output: scores and wording drift between runs; the monotonic rise across the two
+> self-authored rounds is the point.
+
 ## The three scripts (from mechanism to real self-evolution)
 
 | Script | What it demonstrates | `AGENTS.md` edited by |
@@ -48,6 +53,19 @@ The agent closes the gap by **learning the convention from a passing example** a
 its own `AGENTS.md` — and in the recursive script, by locking down the fixed constants once it has
 seen several examples.
 
+## 0. Before you start
+
+| Requirement | Version / notes | Check |
+| --- | --- | --- |
+| Node.js | ≥ 24 | `node -v` |
+| pnpm | ≥ 11 | `pnpm -v` |
+| Ollama | Can load `qwen3.6:35b`; AMD cards need a working ROCm backend | `ollama -v` |
+| Repository | Cloned, and the shell is at its root | `ls examples/self-improving-agent` |
+
+> No AMD card is required: Ollama falls back to other backends (NVIDIA / CPU). This example runs
+> several tasks per round, so it is heavier on inference time than the build-agent example — use a
+> model of at least `qwen3.6:35b`'s class.
+
 ## 1–2. Serve the model and point NiceAgent at it
 
 ```bash
@@ -72,7 +90,7 @@ pnpm --dir examples/self-improving-agent start        # the recursive main line
 # or the scoring-loop baseline:  npx tsx examples/self-improving-agent/self-improve.ts
 ```
 
-## What you should see
+## 4. What you should see
 
 ```text
 N  BASELINE (blank AGENTS.md): 5 runs
@@ -109,6 +127,29 @@ stalls mid-way. Given **several** accepted reports that share the same marker an
 infers "whatever is identical across all of them is a fixed constant", reads its **own** round-1
 `AGENTS.md`, and refines it — recursion in the true sense: `state_{n+1} = agent.reflect(state_n,
 new_evidence)`. Exact numbers vary run to run; the monotonic direction is the point.
+
+## 5. Who does what in the loop
+
+| Step | The script | The agent |
+| --- | --- | --- |
+| Evaluate | Supplies the task, runs `score()`, averages 5 runs | Solves the task, produces `summary.md` |
+| Diagnose | Puts one failing result and one accepted example in context | Compares them and names the missing rule |
+| Edit | Decides keep / roll back, writes to disk | Authors the new `AGENTS.md` content |
+| Re-evaluate | Re-runs the same task, compares the means | Answers again under the new rules |
+
+The script **never** writes the convention itself: it supplies a failure signal, examples and the
+keep/roll-back decision. The learning is the model's, and it is persisted into the agent's own
+identity file.
+
+## 6. Troubleshooting
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Every round lands near 4.80 with no gain | `AGENTS.md` was never written (the model narrated instead of calling the file tool) | Use a stronger model; check the trace for a file-write call |
+| N+1 scores below N and the script rolls back | A weak model inferred the rule but executed it unreliably | Expected behaviour, not a bug; switch to a model of `qwen3.6:35b`'s class |
+| `connect ECONNREFUSED 127.0.0.1:11434` | Ollama is not running | `ollama serve`; verify with `curl http://localhost:11434/api/tags` |
+| A run takes a long time | 5 tasks per round × 3 rounds, all local inference | Run `self-evolve.ts` (one round) first to check the wiring |
+| You want to start over | The demo agent's `AGENTS.md` still holds round 2 | Just re-run: each run resets it to blank |
 
 ## Honest boundaries
 

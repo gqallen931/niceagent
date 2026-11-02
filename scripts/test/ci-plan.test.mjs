@@ -161,7 +161,7 @@ describe("affected CI", { concurrency: false }, () => {
     });
   }
 
-  for (const file of ["README.md", "README.zh.md", "plugins/README.md", "plugins/README.zh.md"]) {
+  for (const file of ["README.md", "README.en.md", "plugins/README.md", "plugins/README.zh.md"]) {
     it(`a ${file} edit checks the catalog without selecting core or its consumers`, () => {
       const plan = changed(file);
       assert.equal(plan.readme, true);
@@ -188,7 +188,7 @@ describe("affected CI", { concurrency: false }, () => {
 
   it("README, changelog and landing edits keep the catalog check separate from site checks", () => {
     write("README.md", "changed\n");
-    write("README.zh.md", "changed\n");
+    write("README.en.md", "changed\n");
     write("changelog/unreleased/2026-10-14-fixture.md", "changed\n");
     const plan = changed("packages/landing/content/blog/fixture.zh.md");
     assert.equal(plan.readme, true);
@@ -339,10 +339,7 @@ describe("affected CI", { concurrency: false }, () => {
     for (const reader of ["core", "docs", "landing", "server", "ui-gallery"]) {
       assert.ok(members(plan.linux).has(name(reader)), `${reader} reads plugin catalogs`);
     }
-    assert.ok(
-      !members(plan.linux).has("@niceagent/catalog-only"),
-      "content has no test script",
-    );
+    assert.ok(!members(plan.linux).has("@niceagent/catalog-only"), "content has no test script");
   });
 
   it("a rename between existing packages checks both the old and new owners", () => {

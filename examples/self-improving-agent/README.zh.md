@@ -13,6 +13,10 @@
 全程跑在一个**本地开源权重模型**上——由 Ollama 提供的 `qwen3.6:35b`——所以不用任何云端 API、数据也不
 离开本机。Ollama 的 ROCm 后端能原生在 AMD GPU 上运行它。
 
+![运行输出：基线 4.80 分，结构轮 6.60 分，常量轮 9.80 分](../../docs/assets/screenshots/example-self-improving.png)
+
+> 截图为示意输出：分数与措辞每轮都会浮动，重点是两轮自我编写后的单调上升。
+
 ## 三个脚本（从机制到真正的自我进化）
 
 | 脚本 | 演示什么 | 由谁编辑 `AGENTS.md` |
@@ -39,8 +43,17 @@
 为什么更强的模型也没法“自己想出来”。它也对应了完整产品的形态：那里 Evaluator 由 `agent-evaluation`
 skill 按一份*私有* rubric 驱动。
 
-Agent 通过**从一份通过范例里学到约定**、并把它写进自己的 `AGENTS.md` 来弥合这个缺口——在递归脚本里，
-更进一步：见过多份范例后，把其中的固定常量锁定下来。
+## 0. 运行前准备
+
+| 依赖 | 版本 / 说明 | 检查方式 |
+| --- | --- | --- |
+| Node.js | ≥ 24 | `node -v` |
+| pnpm | ≥ 11 | `pnpm -v` |
+| Ollama | 能加载 `qwen3.6:35b`；AMD 显卡需可用的 ROCm 后端 | `ollama -v` |
+| 仓库 | 已克隆并位于仓库根目录 | `ls examples/self-improving-agent` |
+
+> 没有 AMD 显卡也可以跑：Ollama 会回退到其他后端（NVIDIA / CPU）。这个示例每轮要跑多次任务，比
+> “构建 Agent”示例更吃推理时间，建议至少用与 `qwen3.6:35b` 同级的模型。
 
 ## 1–2. 提供模型并把 NiceAgent 指向它
 
@@ -56,17 +69,25 @@ niceagent config model add \
   --api-key ollama --set-default
 ```
 
+配置写入 `~/.niceagent/data/default_project/.project_config.toml`；示例使用项目的默认模型，脚本里
+没有硬编码 model id。
+
 ## 3. 运行示例
 
 ```bash
 pnpm install
 pnpm build
-pnpm --dir examples/self-improving-agent start        # 递归主线
+pnpm --dir examples/self-improving-agent start        # 递归主线（两轮）
 # 或单轮：  npx tsx examples/self-improving-agent/self-evolve.ts
 # 或评分闭环基线：  npx tsx examples/self-improving-agent/self-improve.ts
 ```
 
-## 你应当看到什么
+三个脚本共用同一套任务、rubric 与专用 agent id（`self-improve-demo`，运行时即时创建）。每次运行都会
+先把该 demo agent 的 `AGENTS.md` 重置为空，因此可以反复跑、结果可对比。
+
+## 4. 预期输出
+
+一条完整的递归轨迹如下——先建立基线，再两轮自我编写：
 
 ```text
 N  BASELINE (blank AGENTS.md): 5 runs
@@ -102,6 +123,28 @@ N+2 (constants locked): 5 runs
 范例后，它推断出“凡是在所有样本里都完全相同的，就是固定常量”，读取自己**上一轮**写的 `AGENTS.md`
 再精炼它——这才是真正意义上的递归：`state_{n+1} = agent.reflect(state_n, 新证据)`。具体数字每次运行
 会有波动；重点是那条单调上升的方向。
+
+## 5. 循环里每一步由谁做
+
+| 步骤 | 脚本负责 | Agent 负责 |
+| --- | --- | --- |
+| 评估 | 提供任务、运行 `score()`、汇总 5 次均值 | 完成任务、产出 `summary.md` |
+| 诊断 | 挑一条失败结果 + 一份通过范例放进上下文 | 对比两者，指出缺了哪条规则 |
+| 编辑 | 保留/回滚与写盘 | 写出新的 `AGENTS.md` 内容 |
+| 再评估 | 重跑同一任务、比较均值 | 按新规则重新作答 |
+
+脚本**从不**自己写那套约定：它只给失败信号、范例和保留/回滚的判断；学习由模型完成，并被固化进它自己
+的身份文件。
+
+## 6. 常见问题
+
+| 现象 | 原因 | 处理 |
+| --- | --- | --- |
+| 每轮都是 4.80 左右、没有提升 | `AGENTS.md` 没写进去（模型只叙述、没调用写文件工具） | 换更强的模型；查看轨迹里是否出现写文件调用 |
+| N+1 比 N 更低，脚本回滚了 | 弱模型“推断出规则但执行不稳” | 这是预期行为，不是 bug；换 `qwen3.6:35b` 级别模型 |
+| `connect ECONNREFUSED 127.0.0.1:11434` | Ollama 没在运行 | `ollama serve`，或 `curl http://localhost:11434/api/tags` 验证 |
+| 运行时间很长 | 每轮 5 次任务 × 3 轮，本地推理 | 先跑 `self-evolve.ts` 单轮验证链路，再跑递归主线 |
+| 想重来一次 | demo agent 的 `AGENTS.md` 残留 | 再次运行脚本即可（每次都会重置为空） |
 
 ## 诚实的边界
 

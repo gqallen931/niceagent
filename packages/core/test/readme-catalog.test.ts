@@ -21,11 +21,15 @@ const README_TABLES = [
     file: "../../../plugins/README.md",
     heading: (c: PluginCategory) => c.title,
   },
-  { label: "README.md", file: "../../../README.md", heading: (c: PluginCategory) => c.title },
   {
-    label: "README.zh.md",
-    file: "../../../README.zh.md",
+    label: "README.md",
+    file: "../../../README.md",
     heading: (c: PluginCategory) => c.titleZh ?? c.title,
+  },
+  {
+    label: "README.en.md",
+    file: "../../../README.en.md",
+    heading: (c: PluginCategory) => c.title,
   },
 ];
 

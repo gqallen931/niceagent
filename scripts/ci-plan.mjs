@@ -13,7 +13,7 @@ const prefix = "@niceagent/";
  * which left one shard carrying the heaviest files.
  */
 const WINDOWS_SERVER_SHARDS = 3;
-const isCatalogReadme = (file) => /^(?:plugins\/)?README(?:\.zh)?\.md$/.test(file);
+const isCatalogReadme = (file) => /^(?:plugins\/)?README(?:\.(?:zh|en))?\.md$/.test(file);
 const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 const command = (names, task) =>
   `pnpm ${names.map((name) => `--filter ${quote(name)}`).join(" ")} ${task}`;
