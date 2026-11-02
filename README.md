@@ -86,6 +86,117 @@ Three layers, and you can adopt any one of them on its own:
 | **Plugin library** | A built-in library of 29 plugin packages: skills, hook packages, MCP servers and workbench pages, with versioning and per-agent installation. |
 | **Evaluation Center** | Benchmark cases, rubric-based scoring, per-case traces and scoreboards — run from the UI, the CLI or an agent. |
 
+## Highlights: an agent that builds agents, and one that improves itself
+
+The engine is not only something you embed — it is strong enough to act on itself. Two runnable
+examples show that end to end, using nothing but the public SDK and a local open-weight model
+served by Ollama: no cloud API, and no data leaving the machine.
+
+| Example | What it demonstrates | Path |
+| --- | --- | --- |
+| **Build an agent with an agent** | An Agent writes another Agent from a paragraph of plain-language requirements, then runs it | [`examples/build-agent-with-agent`](examples/build-agent-with-agent) |
+| **A self-improving agent** | An Agent diagnoses its own failures, rewrites its own `AGENTS.md`, and keeps the change only when the score improves | [`examples/self-improving-agent`](examples/self-improving-agent) |
+
+Taken together they close the circle: an agent definition is data the framework can **produce**, and
+it is data the framework can **improve** — because it is files, traces and rubrics all the way down.
+
+### 1. An agent that builds another agent
+
+[`examples/build-agent-with-agent/build-agent.ts`](examples/build-agent-with-agent/build-agent.ts)
+runs two phases in one script:
+
+1. **Build** — `default_agent`, driven by the `agent-initialization` skill
+   ([plugins/agent-development/skills/agent-initialization](plugins/agent-development/skills/agent-initialization)),
+   scaffolds a new agent from a single paragraph: the agent directory, a copied
+   `system_config.yaml` carrying its name and description, and an `AGENTS.md` that encodes the rules.
+2. **Run** — the freshly created `commit-helper` agent is loaded and given its first task. It
+   answers using only the `AGENTS.md` the builder just wrote, which is what proves the generated
+   file really shapes its behaviour.
+
+**Why it matters**
+
+- **An agent is data, not code.** A directory plus `AGENTS.md` is the whole definition, so creating
+  one is a tool call inside a session — no scaffolding script, no build step, no deploy.
+- **The builder and the built share one runtime.** The same SDK, approval callback, sandbox and
+  trace format cover both, so what you learn about one applies to the other.
+- **The result is a first-class agent.** It appears in the Web App, can be edited by hand, and is
+  versioned with the project like any other file.
+- **The human stays on the mechanical parts.** The model does the design work; malformed YAML or a
+  stray escape is visible in plain text and in the trace, and is fixed in seconds.
+
+```bash
+# one-time: serve an open-weight model locally (ROCm, so AMD GPUs work too)
+ollama serve & ollama pull qwen3.6:35b
+niceagent config model add --model-id qwen3.6:35b \
+  --provider custom --client-type openai \
+  --base-url http://localhost:11434/v1 --api-key ollama --set-default
+
+pnpm install && pnpm build
+pnpm --dir examples/build-agent-with-agent start
+# or: npx tsx examples/build-agent-with-agent/build-agent.ts
+```
+
+The second phase prints something like:
+
+```text
+fix(payment): add retry-with-backoff for transient gateway 503 errors
+
+Transient 503 responses from the payment gateway were causing checkout
+failures during peak traffic. Retry with exponential backoff gives the
+gateway time to recover, preventing spurious user-facing errors.
+```
+
+### 2. An agent that improves itself
+
+[`examples/self-improving-agent`](examples/self-improving-agent) runs the
+**Evaluate → Diagnose → Edit → Re-evaluate** loop on the agent's own definition, and keeps a round
+only when the mean rubric score rises.
+
+| Script | What it demonstrates | Who edits `AGENTS.md` |
+| --- | --- | --- |
+| `self-improve.ts` | The scoring loop in miniature — the honest baseline | **The script** (hard-coded) |
+| `self-evolve.ts` | A real, single-round self-evolution | **The agent** |
+| `self-evolve-recursive.ts` | Multi-round recursion — the `start` script | **The agent**, twice |
+
+The task is deliberately built around an **information gap**: summarising notes into `summary.md` is
+easy, but the team's report convention — a marker line, a `# Report: <subject>` heading, a
+`Classification:` line, a `Reviewed-by:` footer — exists only in `AGENTS.md` and cannot be inferred
+from the task. The rubric has ten atomic points: five any capable model can earn from the task
+alone, five only from the convention. With an empty `AGENTS.md` even a strong model stalls at
+5/10, because the missing half is *knowledge*, not *ability*.
+
+**Why it matters**
+
+- **The improvement is produced, not scripted.** The script supplies a failure signal and a passing
+  exemplar; the agent reads them, states the missing rule and writes it into its own identity file.
+- **Recursion is real state.** Round two starts from the `AGENTS.md` round one wrote and refines it
+  (`state_{n+1} = agent.reflect(state_n, evidence)`), which is how structure is learned from one
+  exemplar and the fixed constants are locked from several.
+- **The metric is falsifiable.** Rubrics are ordinary code and every run is traced, so a round that
+  does not raise the score is rolled back — the loop has an objective function, not a narrative.
+- **It generalises beyond the demo.** The same shape applies to any convention an agent must absorb
+  — a repo's style, a team's review rules, a private rubric — with `agent-evaluation` supplying the
+  scorer.
+
+```bash
+pnpm --dir examples/self-improving-agent start     # recursive main line
+# single round:      npx tsx examples/self-improving-agent/self-evolve.ts
+# scoring baseline:  npx tsx examples/self-improving-agent/self-improve.ts
+```
+
+A typical trajectory, with the structural gain separated from the constants it locks:
+
+```text
+N    (baseline):        4.80/10     # blank AGENTS.md — every convention point lost
+N+1  (structure):       6.60/10     # learned the shape from one accepted report
+N+2  (constants):       9.80/10     # locked the literals from three exemplars
+Monotonic improvement across two self-authored rounds. ✔
+```
+
+Numbers move between runs; the direction is the point. Each example's own README covers the
+setup, the expected output and the honest limits — including why a weak model can regress, and why
+that rollback is the loop working correctly.
+
 ## Architecture
 
 NiceAgent separates **the loop** from **the host**. The engine knows how to think and act; the
@@ -465,6 +576,7 @@ packages/
   hmr/         hot-update primitives for the running platform
   ui/          shared UI primitives and design tokens
 plugins/       the plugin library (skills, hooks, MCP servers, workbenches, sandboxes)
+examples/      runnable end-to-end demos: build an agent with an agent, self-improving agent
 benchmarks/    benchmark cases and rubrics
 scripts/       build, codegen and repository tooling
 docs/          architecture, comparison, screenshots

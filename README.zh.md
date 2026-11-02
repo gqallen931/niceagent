@@ -78,6 +78,108 @@ NiceAgent 是一个**通用智能体框架**。它把一次模型调用周围那
 | **插件库** | 29 个内置插件包：技能、钩子包、MCP 服务与工作台页面，带版本与按智能体安装。 |
 | **评测中心** | 基准用例、基于评分规则的打分、逐用例轨迹与记分板——可在界面、CLI 或由智能体自身运行。 |
 
+## 核心亮点：能构建 Agent，也能改进自己
+
+这个内核不只是拿来嵌入的——它强到可以作用于自身。下面两个可运行示例把这件事完整演示了一遍，
+只用公开 SDK 和一个本地的开源权重模型（由 Ollama 提供）：不调用云端 API，数据也不离开本机。
+
+| 示例 | 演示什么 | 路径 |
+| --- | --- | --- |
+| **用一个 Agent 构建另一个 Agent** | Agent 依据一段大白话需求写出另一个 Agent，然后立刻运行它 | [`examples/build-agent-with-agent`](examples/build-agent-with-agent) |
+| **自我改进的 Agent** | Agent 诊断自己的失败、重写自己的 `AGENTS.md`，只在平均分提升时保留改动 | [`examples/self-improving-agent`](examples/self-improving-agent) |
+
+两者合起来正好闭环：Agent 定义是框架可以**生产**的数据，也是框架可以**改进**的数据——因为它自始至终
+都是文件、轨迹和评分规则。
+
+### 1. 用一个 Agent 构建另一个 Agent
+
+[`examples/build-agent-with-agent/build-agent.ts`](examples/build-agent-with-agent/build-agent.ts)
+在一个脚本里跑两个阶段：
+
+1. **构建** —— `default_agent` 由 `agent-initialization` 技能驱动
+   （[plugins/agent-development/skills/agent-initialization](plugins/agent-development/skills/agent-initialization)），
+   从一段需求里搭出一个新智能体：智能体目录、复制来的 `system_config.yaml`（带名称与描述），以及一份
+   把规则写清楚的 `AGENTS.md`。
+2. **运行** —— 加载刚创建的 `commit-helper`，交给它第一个任务。它只依赖构建者刚刚写下的
+   `AGENTS.md` 作答——这正是“生成的文件确实塑造了行为”的证据。
+
+**价值所在**
+
+- **智能体是数据，不是代码。** 一个目录加一份 `AGENTS.md` 就是全部定义，所以“创建一个智能体”只是会话内
+  的一次工具调用：没有脚手架脚本、没有构建步骤、不需要部署。
+- **构建者与被构建者共用同一套运行时。** 同一个 SDK、审批回调、沙箱与轨迹格式覆盖两者，你对其中一个的
+  观察同样适用于另一个。
+- **产出是一等公民。** 它会出现在 Web App 里，可以手工编辑，也和项目里其他文件一样纳入版本管理。
+- **人只负责机械层面的收尾。** 设计交给模型；YAML 缩进、转义这类小失误以纯文本和轨迹形式暴露，几秒即可
+  修正。
+
+```bash
+# 一次性：在本地提供开源权重模型（ROCm，AMD GPU 同样可用）
+ollama serve & ollama pull qwen3.6:35b
+niceagent config model add --model-id qwen3.6:35b \
+  --provider custom --client-type openai \
+  --base-url http://localhost:11434/v1 --api-key ollama --set-default
+
+pnpm install && pnpm build
+pnpm --dir examples/build-agent-with-agent start
+# 或：npx tsx examples/build-agent-with-agent/build-agent.ts
+```
+
+第二阶段会打印类似这样的结果：
+
+```text
+fix(payment): add retry-with-backoff for transient gateway 503 errors
+
+Transient 503 responses from the payment gateway were causing checkout
+failures during peak traffic. Retry with exponential backoff gives the
+gateway time to recover, preventing spurious user-facing errors.
+```
+
+### 2. 自我改进的 Agent
+
+[`examples/self-improving-agent`](examples/self-improving-agent) 在智能体自己的定义上跑
+**评估 → 诊断 → 编辑 → 重新评估**循环，只有平均分提升时才保留这一轮改动。
+
+| 脚本 | 演示什么 | 由谁编辑 `AGENTS.md` |
+| --- | --- | --- |
+| `self-improve.ts` | 评分闭环的微缩版——诚实的基线 | **脚本**（硬编码） |
+| `self-evolve.ts` | 真正的单轮自我进化 | **Agent** 自己 |
+| `self-evolve-recursive.ts` | 多轮递归——`start` 对应的主线 | **Agent** 自己，连续两轮 |
+
+任务刻意围绕一个**信息缺口**设计：把笔记总结进 `summary.md` 不难，但团队的汇报约定——一行 marker、
+`# Report: <subject>` 标题、一行 `Classification:`、`Reviewed-by:` 页脚——只存在于 `AGENTS.md` 里，
+无法从任务本身推断。评分规则有 10 个原子分点：5 个内容点任何有能力的模型都能拿到，另外 5 个只能来自
+约定。`AGENTS.md` 为空时，即使强模型也会稳定停在 5/10——缺的那一半是**知识**，不是**能力**。
+
+**价值所在**
+
+- **改进是产出的，不是写死的。** 脚本只提供失败信号和一份通过范例；Agent 自己读出缺失的规则，并写进
+  自己的身份文件。
+- **递归是真的状态传递。** 第二轮从第一轮写下的 `AGENTS.md` 出发继续精炼
+  （`state_{n+1} = agent.reflect(state_n, evidence)`）：结构从一份范例学到，固定常量则从多份范例中锁定。
+- **指标可证伪。** 评分规则就是普通代码，每次运行都有轨迹，因此没能提分的一轮会被回滚——这个循环有目标
+  函数，而不是一段叙事。
+- **形态可迁移。** 任何需要 Agent 吸收的约定——仓库风格、团队评审规则、私有评分标准——都可以套用这个
+  结构，评分器交给 `agent-evaluation`。
+
+```bash
+pnpm --dir examples/self-improving-agent start     # 递归主线
+# 单轮：      npx tsx examples/self-improving-agent/self-evolve.ts
+# 评分基线：  npx tsx examples/self-improving-agent/self-improve.ts
+```
+
+典型轨迹，把结构收益与常量锁定分开看：
+
+```text
+N    (基线):       4.80/10     # AGENTS.md 为空——约定分全部丢失
+N+1  (结构):       6.60/10     # 从一份通过范例学到格式
+N+2  (常量):       9.80/10     # 从三份范例锁定字面常量
+两轮自我编写的改动，单调上升。✔
+```
+
+具体数字每次运行会有波动，方向才是重点。各自的 README 还写清了环境准备、预期输出与诚实的边界，包括
+弱模型为何可能倒退，以及那次回滚恰恰说明循环在正确工作。
+
 ## 架构
 
 NiceAgent 把**循环**与**宿主**分开：内核只负责思考与行动；服务端负责托管多智能体、多用户、多项目；Web App 与 CLI 是同一记录流的两个渲染器。
@@ -414,6 +516,7 @@ packages/
   hmr/         运行中平台的热更新原语
   ui/          共享 UI 原语与设计令牌
 plugins/       插件库（技能、钩子、MCP 服务、工作台、沙箱）
+examples/      可直接运行的端到端示例：用一个 Agent 构建另一个 Agent、自我改进的 Agent
 benchmarks/    基准用例与评分规则
 scripts/       构建、代码生成与仓库工具
 docs/          架构、对比、截图
